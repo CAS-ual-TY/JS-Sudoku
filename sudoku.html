@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<!--
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+-->
+<html>
+    <head>
+        <title>Sudoku</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            input {
+                width: 40px;
+                height: 40px;
+                font-size: 20pt;
+                font-family: "Courier New";
+                font-weight: bold;
+                text-align: center;
+                margin: 4px;
+            }
+            button {
+                width: 160px;
+                height: 40px;
+                font-family: "Courier New";
+                font-weight: bold;
+                text-align: center;
+                margin: 4px;
+            }
+            input::-webkit-outer-spin-button,
+            input::-webkit-inner-spin-button {
+                /* display: none; <- Crashes Chrome on hover */
+                -webkit-appearance: none;
+                margin: 0; /* <-- Apparently some margin are still there even though it's hidden */
+            }
+                    
+            input[type=number] {
+                -moz-appearance:textfield; /* Firefox */
+            }
+        </style>
+    </head>
+    <body>
+        <div id="buttons1">
+            <input type="number" value="3" id="size_in" min="1">
+            <button onclick="setup()">Start</button>
+            <button onclick="setupDefault()">Default 3x3</button><br><br>
+        </div>
+        <div id="buttons2">
+            <button onclick="testRows()">Test Rows</button>
+            <button onclick="testColumns()">Test Columns</button>
+            <button onclick="testGroups()">Test Groups</button>
+            <button onclick="testAll()">Test All</button><br>
+            <button onclick="showZeros()">Show Empty</button>
+            <button onclick="showGroups()">Reset Colors</button>
+            <button onclick="lock()">Lock / Unlock</button>
+            <button onclick="newGame()">New Game</button><br><br>
+        </div>
+        <script>
+
+var problem = [
+    0, 8, 0, 0, 5, 7, 0, 0, 1,
+    0, 1, 0, 3, 0, 0, 5, 0, 7,
+    0, 6, 5, 9, 0, 0, 0, 0, 2,
+    5, 0, 0, 0, 3, 0, 9, 2, 0,
+    1, 0, 6, 0, 0, 2, 4, 0, 0,
+    3, 0, 0, 4, 6, 0, 0, 7, 0,
+    0, 0, 0, 0, 0, 3, 2, 6, 8,
+    6, 3, 2, 0, 9, 0, 0, 0, 0,
+    0, 0, 4, 6, 0, 1, 0, 5, 0
+];
+
+var size;
+var size_sq;
+
+var locked;
+
+var buttons = document.getElementById("buttons2");
+document.body.removeChild(buttons);
+
+var size_in = document.getElementById("size_in");
+
+setSize(3);
+
+//----------------------------------------------------------
+
+function setup()
+{
+    locked = false;
+    setSize(size_in.value);
+    switchButtons();
+    setupSudoku();
+    showGroups();
+}
+
+function setupDefault()
+{
+    setSize(3);
+    switchButtons();
+    setupSudoku();
+    
+    var x, y;
+    var idx, value;
+    var input;
+    
+    for(y = 0; y < size_sq; ++y)
+    {
+        for(x = 0; x < size_sq; ++x)
+        {
+            idx = x + y * size;
+            value = problem[idx];
+            
+            if(value !== 0)
+            {
+                input = document.getElementById("input" + x + "_" + y);
+                input.value = value;
+            }
+        }
+    }
+    
+    lock();
+    showGroups();
+}
+
+function destroyExistingSudoku()
+{
+    var sudoku = document.getElementById("sudoku");
+    document.body.removeChild(sudoku);
+}
+
+function newGame()
+{
+    destroyExistingSudoku();
+    switchButtons();
+}
+
+function setSize(paramSize)
+{
+    var s = parseInt(paramSize);
+    
+    if(s < 1)
+    {
+        s = 1;
+    }
+    
+    size = s;
+    size_sq = size * size;
+}
+
+function switchButtons()
+{
+    document.body.appendChild(buttons);
+    
+    if(buttons.id === "buttons1")
+    {
+        buttons = document.getElementById("buttons2");
+    }
+    else if(buttons.id === "buttons2")
+    {
+        buttons = document.getElementById("buttons1");
+    }
+    
+    document.body.removeChild(buttons);
+}
+
+function setupSudoku()
+{
+    var x;
+    var y;
+    var idx;
+    
+    var td;
+    var tr;
+    var input;
+    
+    var table = document.createElement("table");
+    table.setAttribute("border", 0);
+    table.setAttribute("id", "sudoku");
+    document.body.appendChild(table);
+    
+    var tbody = document.createElement("tbody");
+    table.appendChild(tbody);
+    
+    for(y = 0; y < size_sq; ++y)
+    {
+        tr = document.createElement("tr");
+        tbody.appendChild(tr);
+        
+        for(x = 0; x < size_sq; ++x)
+        {
+            idx = x + y * size_sq;
+            
+            td = document.createElement("td");
+            td.setAttribute("align", "middle");
+            td.setAttribute("id", "td" + x + "_" + y);
+            tr.appendChild(td);
+            
+            input = document.createElement("input");
+            input.setAttribute("type", "number");
+            input.setAttribute("min", 1);
+            input.setAttribute("max", size_sq);
+            input.setAttribute("id", "input" + x + "_" + y);
+            td.appendChild(input);
+        }
+    }
+}
+
+function lock()
+{
+    var input;
+    
+    if(locked)
+    {
+        for(y = 0; y < size_sq; ++y)
+        {
+            for(x = 0; x < size_sq; ++x)
+            {
+                input = document.getElementById("input" + x + "_" + y);
+                input.removeAttribute("disabled");
+            }
+        }
+    }
+    else
+    {
+        for(y = 0; y < size_sq; ++y)
+        {
+            for(x = 0; x < size_sq; ++x)
+            {
+                input = document.getElementById("input" + x + "_" + y);
+                
+                if(parseInt(input.value) > 0)
+                {
+                    input.setAttribute("disabled", "disabled");
+                }
+            }
+        }
+    }
+    
+    locked = !locked;
+}
+
+function testAll()
+{
+    allGreen();
+    testRows_do();
+    testColumns_do();
+    testGroups_do();
+}
+
+function testRows()
+{
+    allGreen();
+    testRows_do();
+}
+
+function testRows_do()
+{
+    var x, y;
+    
+    var input;
+    var checked;
+    var value;
+    var td;
+    
+    var wrong = getFalseArray();
+    var wrong = new Array(size);
+    
+    //Horizontal
+    for(y = 0; y < size_sq; ++y)
+    {
+        checked = getFalseArray();
+        
+        for(x = 0; x < size_sq; ++x)
+        {
+            input = document.getElementById("input" + x + "_" + y);
+            value = parseInt(input.value + "");
+            
+            if(value === 0)
+            {
+                wrong[y] = true;
+                break;
+            }
+            
+            --value;
+            
+            if(checked[value])
+            {
+                wrong[y] = true;
+                break;
+            }
+            else
+            {
+                checked[value] = true;
+            }
+        }
+    }
+    
+    //Do final Color
+    for(y = 0; y < size_sq; ++y)
+    {
+        if(wrong[y])
+        {
+            for(x = 0; x < size_sq; ++x)
+            {
+                td = document.getElementById("td" + x + "_" + y);
+                td.setAttribute("bgcolor", "red");
+            }
+        }
+    }
+}
+
+function testColumns()
+{
+    allGreen();
+    testColumns_do();
+}
+
+function testColumns_do()
+{
+    var x, y;
+    
+    var input;
+    var checked;
+    var value;
+    var td;
+    
+    var wrong = getFalseArray();
+    
+    //Vertical
+    for(x = 0; x < size_sq; ++x)
+    {
+        checked = getFalseArray();
+        
+        for(y = 0; y < size_sq; ++y)
+        {
+            input = document.getElementById("input" + x + "_" + y);
+            value = parseInt(input.value + "");
+            
+            if(value === 0)
+            {
+                wrong[x] = true;
+                break;
+            }
+            
+            --value;
+            
+            if(checked[value])
+            {
+                wrong[x] = true;
+                break;
+            }
+            else
+            {
+                checked[value] = true;
+            }
+        }
+    }
+    
+    //Do final Color
+    for(x = 0; x < size_sq; ++x)
+    {
+        if(wrong[x])
+        {
+            for(y = 0; y < size_sq; ++y)
+            {
+                td = document.getElementById("td" + x + "_" + y);
+                td.setAttribute("bgcolor", "red");
+            }
+        }
+    }
+}
+
+function testGroups()
+{
+    allGreen();
+    testGroups_do();
+}
+
+function testGroups_do()
+{
+    var x, y, x1, y1, x2, y2;
+    var idx;
+    var td;
+    var input;
+    var checked;
+    var value;
+    
+    var wrong = getFalseArray();
+    
+    //Group x
+    for(x1 = 0; x1 < size; ++x1)
+    {
+        //Group y
+        for(y1 = 0; y1 < size; ++y1)
+        {
+            checked = getFalseArray();
+            
+            //Cell x inside group
+            for(x2 = 0; x2 < size; ++x2)
+            {
+                //Cell y inside group
+                for(y2 = 0; y2 < size; ++y2)
+                {
+                    x = x1 * size + x2;
+                    y = y1 * size + y2;
+                    idx = x1 + y1 * size;
+                    
+                    input = document.getElementById("input" + x + "_" + y);
+                    value = parseInt(input.value + "");
+                        
+                    if(value === 0)
+                    {
+                        wrong[idx] = true;
+                        break;
+                    }
+                        
+                    --value;
+                        
+                    if(checked[value])
+                    {
+                        wrong[idx] = true;
+                        break;
+                    }
+                    else
+                    {
+                        checked[value] = true;
+                    }
+                }
+            }
+        }
+    }
+    
+    //Do final Color
+    for(idx = 0; idx < size_sq; ++idx)
+    {
+        if(wrong[idx])
+        {
+            x1 = idx % size;
+            y1 = Math.floor(idx / size);
+            
+            //Cell x inside group
+            for(x2 = 0; x2 < size; ++x2)
+            {
+                //Cell y inside group
+                for(y2 = 0; y2 < size; ++y2)
+                {
+                    x = x1 * size + x2;
+                    y = y1 * size + y2;
+                    
+                    td = document.getElementById("td" + x + "_" + y);
+                    td.setAttribute("bgcolor", "red");
+                }
+            }
+        }
+    }
+}
+
+function showZeros()
+{
+    var td;
+    var input;
+    var value;
+    
+    var x, y;
+    
+    for(x = 0; x < size_sq; ++x)
+    {
+        for(y = 0; y < size_sq; ++y)
+        {
+            td = document.getElementById("td" + x + "_" + y);
+            input = document.getElementById("input" + x + "_" + y);
+            value = input.value + "";
+            
+            if(value === "")
+            {
+                td.setAttribute("bgcolor", "red");
+            }
+            else
+            {
+                td.setAttribute("bgcolor", "green");
+            }
+        }
+    }
+}
+
+function showGroups()
+{
+    var x, y;
+    var td;
+    
+    var num;
+    var bool;
+    
+    for(y = 0; y < size_sq; ++y)
+    {
+        for(x = 0; x < size_sq; ++x)
+        {
+            num = (Math.floor(x / size) + Math.floor(y / size) * size);
+            bool = num % 2 === 0;
+            
+            if(size % 2 === 0)
+            {
+                if(Math.floor(y / size) % 2 === 1)
+                {
+                    bool = !bool;
+                }
+            }
+            
+            td = document.getElementById("td" + x + "_" + y);
+            td.setAttribute("bgcolor", bool ? "grey" : "silver");
+        }
+    }
+}
+
+function allWhite()
+{
+    allColor("white");
+}
+
+function allGreen()
+{
+    allColor("green");
+}
+
+function allColor(color)
+{
+    var td;
+    
+    var x;
+    var y;
+    
+    for(y = 0; y < size_sq; ++y)
+    {
+        for(x = 0; x < size_sq; ++x)
+        {
+            td = document.getElementById("td" + x + "_" + y);
+            td.setAttribute("bgcolor", color);
+        }
+    }
+}
+
+function getFalseArray()
+{
+    var array = new Array(size_sq);
+    
+    for(var i = 0; i < array.length; ++i)
+    {
+        array[i] = false;
+    }
+    
+    return array;
+}
+
+        </script>
+    </body>
+</html>
